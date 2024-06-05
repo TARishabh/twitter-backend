@@ -1,6 +1,9 @@
 import axios from 'axios';
 import { prismaClient } from '../../clients/db';
 import { JWTService } from '../../services/jwt';
+import { GraphQLArgs } from 'graphql';
+import { GraphqlContext } from '../../interfaces';
+import { User } from '@prisma/client';
 
 interface GoogleJwtPayload {
     iss: string;          // Issuer
@@ -30,7 +33,8 @@ const queries = {
         const {data} = await axios.get<GoogleJwtPayload>(googleOauthUrl.toString(),{
             responseType: 'json'
         });
-
+        
+        console.log(data.email,"email")
         const checkForUser = await prismaClient.user.findUnique({where:{email:data.email}});
 
         if (!checkForUser) {
@@ -50,7 +54,26 @@ const queries = {
         const jwtToken = JWTService.generateToken(userInDb);
         return jwtToken;
     },
+
+    getCurrentUser : async (parent:any,args:any,context: GraphqlContext) =>{
+        const id = context.user?.id;
+        console.log(context.user?.id,"email")
+        if (!id) {
+            throw new Error("User not found");
+        }
+        const user = await prismaClient.user.findUnique({
+            where:{
+                id
+            }
+        })
+        return user;
+    }
 }
 
+const UserExtraResolvers = {
+    User : {
+        tweets: (parent: User) => prismaClient.tweet.findMany({where:{authorId: parent.id}})
+    }
+}
 
-export const resolvers = {queries}
+export const resolvers = {queries,UserExtraResolvers}
